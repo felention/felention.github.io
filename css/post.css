@@ -1,0 +1,63 @@
+@font-face {
+  font-family: SSP;
+  src: url('../SourceSansPro-Regular.ttf') format("truetype");
+}
+#header img {
+  width: 16px;
+  height: 16px;
+}
+#content {
+  background: #282C34;
+  color: #606B80;
+  padding-top: 1px;
+  padding-bottom: 80px;
+  overflow-x: hidden;
+}
+#content * {
+  margin-left: 20%;
+  margin-right: 30%;
+}
+#content a {
+  color: #35D7BB;
+  text-decoration: none;
+}
+#content p a {
+  margin: 0;
+}
+#content h1 {
+  font-family: SSP;
+}
+#content h4 {
+  margin-bottom: 0px;
+}
+#content p {
+  font-size: 16px;
+  font-weight: bold;
+}
+#content ul {
+  margin: 0;
+}
+#content code {
+  background: #000;
+  color: #FFF;
+  margin: 0;
+  padding: 0 2px;
+  border-radius: 5px;
+}
+#content span {
+  color: #A5ABB6;
+  margin: 0;
+}
+#content img {
+  border: 1px solid #000;
+  max-width: 50%;
+  width: auto;
+  height: auto;
+}
+#content ol {
+  list-style-type: none;
+  padding: 0;
+  margin: 0;
+  font-weight: bold;
+  font-size: 20px;
+}

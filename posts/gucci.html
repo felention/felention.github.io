@@ -1,0 +1,119 @@
+<html>
+<head>
+  <title>Gucci Vulnerabilities</title>
+  <link rel="stylesheet" href="../css/post.css">
+  <link rel="stylesheet" href="../css/header.css">
+  <link rel="stylesheet" href="../css/footer.css">
+  <meta charset="UTF-8">
+</head>
+<body>
+  <div id="body">
+    <div id="header">
+      <h1>Write Ups</h1>
+      <h2><span id="Twitter">Twitter</span>: <a href="https://twitter.com/derplaughing_" target="_blank">DerpLaughing_</a></h2>
+      <h2><span id="Discord">Discord</span>: Spooker#7800</h2>
+      <h2>brad<span class="rep">gbfdgfd</span>f.icu</h2>
+      <h2><a href="../index.html"><img src="../images/home.png">Home</a></h2>
+    </div>
+    <div id="content">
+      <h4>Jump to:</h4>
+      <a href="#0">0x00 Introduction</a><br>
+      <a href="#1">0x01 Discovery</a><br>
+      <a href="#2">0x02 Rundown</a><br>
+      <a href="#3">0x03 Exploitation</a><br>
+      <a href="#4">0x04 Revisit</a><br>
+      <a href="#5">0x05 Timeline</a><br>
+      <a href="#6">0x06 Summary</a><br>
+      <a href="#7">0x07 Comments</a><br>
+      <a href="#8">0x08 References</a><br>
+      <br>
+      <br>
+      <h3>Date: 27/10/2022</h3>
+      <h1 id="0">0x00 Introduction</h1>
+      <p>Around the 14th of March 2019 I found Arbitrary File Upload, Path Traversal, Remote Code Execution and Local File Inclusion on the Gucci Subdomain glft.gucci.com on port 3443 (<a href="https://glft.gucci.com:3443/" target="_blank" id="[1]">https://glft.gucci.com:3443/</a>). When attempting to go to the subdomain on the regular port 80/443, you would be met with a message that the subdomain was an intranet interface. So all of the findings combined, a malicious actor could have read local files, uploaded a phishing page, upload a web shell which could have led to a reverse shell, opening up a potential of traversing the internal network.</p>
+      <p>The `<span>GLFT</span>` stands for `<span>Gucci Large File Transfer</span>`. What this seemed to be was a page for Gucci employees to upload and send files, either to other employees, company parners, retailers, advertising companies, etc. As far as I can remember, there was no limitations on what could be uploaded. Whatever you uploaded would be sent via email. Regardless of what you uploaded, even web pages or anything else you could interact with, your only option was to save the file.</p>
+      <p>I feel as if I've gone a bit too in depth and made this write-up longer than it needs to be, so any feedback I would very much appreciate. These can be sent to my <a href="https://twitter.com/derplaughing_" target="_blank" id="[2]">Twitter</a>. Also feel free to ask any questions, my DMs are open.</p>
+      <hr>
+      <h1 id="1">0x01 Discovery</h1>
+      <p>When I first came across the GLFT subdomain, it was because it was sent in a group chat I was in. Around the time of typing this I found out that it was being shared around a lot but fortunately it was only for bragging rights for knowing about it's existence, not because of the Vulnerabilities that existed. I had no intentions of looking for vulnerabilities on Gucci's domain prior to being sent this, however it was cool to have been sent it for me to have discovered the issues.</p>
+      <hr>
+      <h1 id="2">0x02 Rundown</h1>
+      <img src="../images/gucci-UploadForm.png" title="Gucci's Upload Form">
+      <p>As you can see from the image, there's three out of six interactive sections that need to be completed. Here's a rundown of each one.</p>
+      <ul>
+        <li>From - This is the sender email. This can be anything but needs to have `<span>@gucci.com</span>`, i.e. `<span>test@gucci.com</span>`. This isn't the real sender, but rather the displayed email only.</li>
+        <li>To - This is the receiving email. Unlike the `<span>From</span>` field, there's no limitations on what domain this email could be set to. The domain doesn't need to exist and the TLD could be invalid, i.e. `<span>doesnt@exist.fake</span>`.</li>
+        <li>Recipients - This is purely here to show all the emails the file will be sent to. Here you will be able to remove an email.</li>
+        <li>Message - This will be the body of the email. This is mostly used for a comment to the recipients.</li>
+        <li>File - Here you will have to select what file you want to upload and send. You're given a remove button if you need to change the file or selected the wrong one.</li>
+        <li>Expires - There's three options for how long you can have the file available fo. The chosen file will expire in either `<span>24 hours</span>`, `<span>3 days</span>` or `<span>1 week</span>`.</li>
+      </ul>
+      <p>As far as I remember you are limited to 300GB for uploading. You're also offered a program, however I hadn't looked into the application.</p>
+      <hr>
+      <h1 id="3">0x03 Exploitation</h1>
+      <p>So for this section I'll be trying to explain the whole process I went through as best as I can remember. The test file I used for uploading, I named it "test.txt" and spammed my keyboard for less than a second to get some quick random characters. The size of the file was 7 bytes, keep that in mind. I then opened up Burpsuite, opened up Firefox Incognito and switched my proxy settings on. I turned on intercept on Burp and clicked 'send' on the upload page.</p>
+      <p>The first thing I was greeted with was a POST request to <code>/calcolaUID.ajax.php?typeOutput=DATA</code>. With this request it sent data such as <code>test@gucci.com&toEmail=[FakeEmail]&expired=1&smb64</code>. The parameter 'smb64' was the text you're sending as the message. Despite the name `<span>smb64</span>` it wasn't base64 encoded. After forwarding that request, the next was another POST to <code>/aggiornaDati.ajax.php?typeOutput=DATA</code>. In this was the UID of the uploaded file, we will take note of `<span>17472BB</span>`. Again, I forwarded the request and then the next one is a POST request to `<span>upload.ajax.php</span>`. This is where we get to have fun.</p>
+      <p>There were 11 form-data segments, however for the bugs we only need three of them. These were `<span>resumableFilename</span>`, `<span>resumableRelativePath</span>` and `<span>file</span>`. The first two were just the filename, however one oversight I made was not checking if both fields were needed. The final field was the contents of the file. Now, normally what this is meant to do is write the contents in the `<span>file</span>` field to both or either `<span>resumableFilename</span>` & `<span>resumableRelativePath</span>`. From now on, we'll refer to the forms as `<span>F1</span>`, `<span>F2</span>` and `<span>F3</span>` in the same order as they are at the start of this paragraph. We'll get to this bit after, however if the location of F1/F2 exists, then F3 is ignored and instead your UID is assigned to that file. So, if you set F1/F2 to `<span>../../../../../../../../etc/passwd</span>`, you will download the passwd file. So, after altering F1 & F2 to the LFI payload, we forward the request a few times then turn intercept off. At the bottom of the screen, the PIN will be displayed. In this case, `<span>8936</span>`. To start the download, we'll use the UID and PIN together in the following URL <code>https://glft.gucci.com:3443/download.php?uid=17472BB&pin=8936&down=true</code>.</p>
+      <img src="../images/gucci-TestFile.png" title="7 Bytes test file">
+      <img src="../images/gucci-LFIPayload.png" title="LFI Payload">
+      <img src="../images/gucci-PasswdFile.png" title="2.1KB passwd file">
+      <p>After this, I wondered if I could try to find any other pages that might be on the subdomain. I went ahead and started running `<span>DirSearch</span>` and one of the pages that came back as 200 OK was `<span>test.php</span>`. After going to the page assuming it could be phpinfo, it was a phpdotenv page which fortunately displayed useful information that also included the path of the page. For this case, the web root was <code>/var/www/html/script/ggsend/</code>. So now we go through the whole process until we get to our `<span>/upload.ajax.php</span>` request, but this time we edit all F1, F2 and F3. So, to confirm the file doesn't exist so we can write, I went to `<span>POC.txt</span>` which resulted in a 404. F3 doesn't need to be edited if the file you're uploading already contains the content you want to be written. So after setting F1 and F2 to <code>/var/www/html/script/ggsend/POC.txt</code>, I sent the rest of the requests and turned intercept off. I went to `<span>POC.txt</span>` and I still got a 404 error. At first I was confused, thinking maybe I can't upload outside of the web root. I tried going to the download file with the UID and PIN for the upload, which resulted in downloading the same file with the same contents. I went through the whole process again just incase I done something wrong, and the file was there. This is when it came to me, that the file isn't placed outside of the web root until you attempt to download it. You don't need to download it either, you can choose to cancel on the download prompt, or just cancel mid-download. As long as you prompted the download request, it'll move the file into the web root.</p>
+      <img src="../images/gucci-POC.png" title="POC File">
+      <p>Now for the part that is the most interesting about the bugs with GLFT. The Remote Code Execution. So of course if we can write files to the web root, we should be able to write a quick and easy web shell. To test that we can, we can upload a `<span>phpinfo();</span>` page to see if we are limited with functions. As none are disabled, we can go straight with using the code I found from <a href="https://www.pentestpartners.com/security-blog/the-tiniest-php-system-shell-ever/" target="_blank" id="[3]">PentestPartners</a> to perform this, which was <code>&lt;pre&gt; &lt;?=`$_GET[1]`?&gt;</code>. For me to do this without making the shell potentially available to others, I decided to make the filename a random 16 char string as well as the cmd parameter another random 16 char string. For the caase of this POC, the filename was `<span>6BFj05qv0Kyi25r0.php</span>` and the parameter is `<span>UIhh8sft6QxpSM2j</span>`. Going to "<a href="https://glft.gucci.com:3443/6BFj05qv0Kyi25r0.php?UIhh8sft6QxpSM2j=uname%20-a" target="_blank" id="[4]">https://glft.gucci.com:3443/6BFj05qv0Kyi25r0.php?UIhh8sft6QxpSM2j=uname -a</a>" resulted in the output below.</p>
+      <img src="../images/gucci-RCE.png" title="uname -a output">
+      <hr>
+      <h1 id="4">0x04 Revisit</h1>
+      <p>For a while I had been attempting to get Gucci to fix these issues. This started with attempting to send emails out, which I can only remember the only accepted recipient was `<span id="email">security@gucci.com</span>`. I tried using their `<span>Contact Us</span>` page using the `<span>Inquiries about Gucci website or online purchases</span> -> <span>Technical</span>` options. I then tried <a href="https://twitter.com/DerpLaughing_/status/1258287629482803201" target="_blank" id="[5]">tweet</a> them about the block, which eventually lead to them taking down the subdomain. They eventually brought it back up with minor fixes.</p>
+      <p>After noticing they brought the subdomain back up, I decided to have another look at it thinking maybe they had fixed the issues. The only fix I can remember, was to do with the `<span>From</span>` email requirments. Previously, the check only ensured that the sent from email was `<span>@gucci.com</span>`, however it was removed. As it is a revisit, I decided to take a check at the requirments, if any. I had known the TLD could be invalid, however I found out there was an actual limit. So for example, `<span>blahblah@blah.abcdef</span>` was acceptable. `<span>blahblah@blah.abcdefg</span>` however, was not. It seemed the TLD wasn't checked, and only the length was, which in this case was 6 characters long.</p>
+      <p>I had also mentioned that I made an oversight and didn't check whether either or both `<span>resumableFilename</span>` or `<span>resumableRelativePath</span>` were actually needed for the LFI or Path Traversal. Still sticking to the F1 and F2 names respectively, it seems that F2 is redundant. Only F1 is actually needed, even if both fields have the same filename. I'm unsure as to what can be the actual reason to this, as F2 doesn't seem to be printed in the email either.</p>
+      <p>Another addition, is any files uploaded to the web root is still in the upload system and has the expiry applied to it. If you wanted a theoretically permanent upload, you could edit the expiry in the <code>calcolaUID.ajax.php</code> request to be a larger number, i.e. `<span>999999</span>`. This is characterised as days, so this would be just under 2,738 years. Alternatively, using a shell you could wget another file which would then be an actual permanent file. This would be used for persistent presence is no reverse shell was executed.</p>
+      <p>When you've uploaded a file, the email that is received will look like the image below. As you can see, the first part of the body is the original file: `<span>a.txt [4.00B]</span>`. Afterwards, you will see the edited request information: `<span>../../../../../../../etc/passwd</span>` & `<span>total size: 95.37MB</span>`.</p>
+      <img src="../images/gucci-Email.png" title="Upload Email">
+      <hr>
+      <h1 id="5">0x05 Timeline</h1>
+      <ol>
+        <li>March 13th 2019 - Found GLFT</li>
+        <li>March 14th 2019 - Found the vulnerabilities</li>
+        <li>March 15th 2019 - Used Gucci’s contact page</li>
+        <li>March 19th 2019 - Requested Disclosure Assistance through HackerOne</li>
+        <li>April 29th 2020 - Subdomain was tweeted about</li>
+        <li>April 30th 2020 - Gucci removed the upload page</li>
+        <li>May 4th 2020 - Gucci reuploaded the upload page</li>
+        <li>May 8th 2020 - Writeup Release</li>
+      </ol>
+      <hr>
+      <h1 id="6">0x06 Summary</h1>
+      <p>I should note that over the year I have made multiple attempts to contact Gucci regarding this issue. Via their contact form on <a href="https://www.gucci.com/us/en/st/contact-us" target="_blank" id="[6]">gucci.com</a>, Disclosure Assistance via HackerOne and tweeting them. Since it's been over a year, it's way past the recommended responsible disclosure timeframe of 90 days. For example, Google recommend <a href="https://about.google/appsecurity/" target="_blank" id="[7]">90 days</a>, HackerOne <a href="https://www.hackerone.com/disclosure-guidelines" target="_blank" id="[8]">180 days</a>, NCSC (UK Gov) <a href="https://www.enisa.europa.eu/news/member-states/WEB_115207_BrochureNCSC_EN_A4.pdf#page=15" target="_blank" id="[9]">60 days</a>, Facebook <a href="https://www.facebook.com/security/advisories/Vulnerability-Disclosure-Policy" target="_blank" id="[10]">90 days</a>, Gitlab <a href="https://about.gitlab.com/security/disclosure/" target="_blank" id="[11]">90 days</a> and Duo (Cisco) <a href="https://duo.com/labs/disclosure" target="_blank" id="[12]">30 days</a>. As you can see, most big/reputable entities have varying responsible disclosure timeframes, a majority of which less is 90 days. These may be for certain circumstances, however the point still stands. Legal action is fully expected, however I had made many attempts to have this resolved privately. They have made this the last resort, this was not what I wanted.</p>
+      <p>Another update is Gucci has blocked my home IP from GLFT. I get a connection time out whilst connecting perfectly on a VPN. Instead of going through the process professionally like the vallued $10.2+ billion company they are, they attempt to prevent me from accessing GLFT. I full understand that I most likely won’t be getting a reward, nor do I want to urge them to. It's just not a good look to ignore issues such as this.</p>
+      <hr>
+      <h1 id="7">0x07 Comments</h1>
+      <p>After releasing the write up, there were people who thought I would end up getting into trouble for this and that Gucci wouldn't tollerate an honest attempt at someone trying to help improve their security. As the image shows below, after my write up release I had finally gotten an email from Gucci acknowledging the issue, and ironically telling me to <a href="#email">email their security team</a> in the future. Nonetheless, thanks to Gucci for realising I had no malicious intentions. &lt;3</p>
+      <p>The right thing to do is to add the fact Gucci committed to making their policy clearly available. They have adopted <code>.well-known/security.txt</code>, which references their policy <a href="https://www.gucci.com/int/en/st/responsible-disclosure" target="_blank" id="[13]">here</a>. It's also nice to see they point out the `<span>90 day</span>` disclosure time. :^P</p>
+      <p>`<span>GUIDELINES - Do keep confidential any information about discovered vulnerabilities for up to 90 calendar days after you have notified Gucci, unless mutually agreed otherwise.</span>`</p>
+      <img src="../images/gucci-FinalReply.png" title="Gucci Reply Email">
+      <p>I had been thinking of redacting the full path to the web root, however after some thinking I don't believe it needs to be. Full Path Disclosure is only a security risk in circumstancial situations, which this write up is a great example of. More so than not, it's nothing too serious, just interesting. Even then, seeing the original write up is on <a href="https://archive.org/" target="_blank" id="[14]">archive.org</a>, it would be useless to do that now.</p>
+      <p>This final comment is pretty unprofessional, but since my write ups are for fun, who actually cares. A known security researcher was pretty upset with this write up, primarily because I mentioned the worth of Gucci and how they handled the issue, specifically the IP ban. They were claiming I was doing beg bounty with this. It's not a 1:1 comparrison, however it's pretty hilarious this clown was practically crying about the EXACT problem I had an issue with.</p>
+      <img src="../images/gucci-WhingingNaf.png" title="Ironic Whinger">
+      <hr>
+      <h1 id="8">0x08 References</h1>
+      <p><a href="#[1]">[1]</a> - Gucci ~ GLFT</p>
+      <p><a href="#[2]">[2]</a> - Twitter ~ My Twitter</p>
+      <p><a href="#[3]">[3]</a> - PentestPartners ~ Tiniest PHP shell</p>
+      <p><a href="#[4]">[4]</a> - Gucci ~ Proof of RCE</p>
+      <p><a href="#[5]">[5]</a> - Twitter ~ My tweet to Gucci over IP ban</p>
+      <p><a href="#[6]">[6]</a> - Gucci ~ Contact page</p>
+      <p><a href="#[1]">[7]</a> - Google ~ Responsible Disclosure</p>
+      <p><a href="#[1]">[8]</a> - HackerOne ~ Responsible Disclosure</p>
+      <p><a href="#[1]">[9]</a> - NCSC ~ Responsible Disclosure</p>
+      <p><a href="#[1]">[10]</a> - Facebook ~ Responsible Disclosure</p>
+      <p><a href="#[1]">[11]</a> - Gitlab ~ Responsible Disclosure</p>
+      <p><a href="#[1]">[12]</a> - Duo ~ Responsible Disclosure</p>
+      <p><a href="#[1]">[13]</a> - Gucci ~ Responsible Disclosure</p>
+      <p><a href="#[1]">[14]</a> - Archive.org</p>
+    </div>
+    <div id="footer">
+      <h1>About: </h1><p>This subdomain serves as my write up site on issues and bugs I have found and reported. As this is just my hobby, a majority of my posts will not exactly be the most technical or complex. I hope the content can be enjoyed regardless. :)</p>
+    </div>
+  </div>
+</body>
+</html>
