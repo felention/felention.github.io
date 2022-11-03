@@ -1,0 +1,70 @@
+<html>
+<head>
+  <title>SeedUp free2prem</title>
+  <link rel="icon" href="../images/fav.png">
+  <link rel="stylesheet" href="../css/post.css">
+  <link rel="stylesheet" href="../css/header.css">
+  <link rel="stylesheet" href="../css/footer.css">
+  <meta charset="UTF-8">
+</head>
+<body>
+  <div id="body">
+    <div id="header">
+      <h1>Write Ups</h1>
+      <h2><span id="Twitter">Twitter</span>: <a href="https://twitter.com/derplaughing_" target="_blank">DerpLaughing_</a></h2>
+      <h2><span id="Discord">Discord</span>: Spooker#7800</h2>
+      <h2>brad<span class="rep">gbfdgfd</span>f.icu</h2>
+      <h2><a href="../index.html"><img src="../images/home.png">Home</a></h2>
+    </div>
+    <div id="content">
+      <h4>Jump to:</h4>
+      <a href="#0">0x00 Introduction</a><br>
+      <a href="#1">0x01 Discovery</a><br>
+      <a href="#2">0x02 Rundown</a><br>
+      <a href="#3">0x03 Exploitation</a><br>
+      <a href="#4">0x04 Summary</a><br>
+      <a href="#5">0x05 References</a><br>
+      <br>
+      <br>
+      <h3>Date: dd/mm/2022</h3>
+      <h1 id="0">0x00 Introduction</h1>
+      <p>Around the 4th of March 2016 I was going through a phase of using free VPS providers for fun and to see what can be done before they terminate the account. I came across one called <code>seedup.io</code> and decided to see what I could do in regards with getting access to features only accessible to paid tiers. Unfortunately, due to how old this was the only images I have showing this when I reported it was made by young me, and therefore not the best when explaining.</p>
+      <p>Unfortunately however, whilst writing this, I found out they disappeared. Looking at <a href="https://web.archive.org/web/20180809091241/https://seedup.io/" target="_blank" id="[1]">archive.org</a> the latest I can see the website being up was the 9th of August 2018. With just a quick search around, I can't find anything mentioning this so I can only assume thanks to their free tier being easy to claim, their business model collapsed.</p>
+      <p>When creating your box, they gave you the option to use a custom subdomain for the hostname. Unfortunately at the time I didn't look into stuff too much, I feel like there were a lot more missed opportunities to find more bugs.</p>
+      <hr>
+      <h1 id="1">0x01 Discovery</h1>
+      <p>Whilst I was taking a look at the different tiers and their options, I decided to see if the options were still available for the free tier. After opening inspect element, I noticed that some of the html wasn't too dissimilar and that the enabled and disabled attribute were being used. I've had times where removing the disabled attribute on pages resulted to me having access, that wasn't reverted on the backend so I thought I had the chance to mess about here.</p>
+      <p></p>
+      <hr>
+      <h1 id="2">0x02 Rundown</h1>
+      <p>It seems that due to the way they created the website, the way they added the tiers was mostly through creating one, duplicating that and then editing to what was required for that tier. It's also possible that they had it set so the tiers were pulled from a table without verifying the final POST request.</p>
+      <p>With the tiers, besides the specs being the difference, the free tier was unable to change from a dynamic IP to a static one, and the server location was unchangeable also. However, I was able to get access to a static IP and change my server location just by messing with the HTML. Of course the chances that I could have just edited the POST request to set these values, however I'm not sure if that was possible, and either way, this could be seen as a method to do so without requiring a proxy like Burp Suite.</p>
+      <hr>
+      <h1 id="3">0x03 Exploitation</h1>
+      <p>When taking a look at the free tier section, you can see that `<span>Static IP</span>` and `<span>US East (N. Virginia)</span>` were greyed out.</p>
+      <img src="../images/seedup-Greyed.png" title="Two Options Disabled">
+      <p>After this, to save time with changing values to true and removing disabled attributes, I decided to copy the outer HTML of a paid tier for the static IP option, and pasted it over the free tier one, giving me the option to then select the Static IP option. I done the same for the server region. As you can see from the images below, not only did the server region box change to `<span>EU (Ireland)</span>`, but so did the tab box beneath it.</p>
+      <img src="../images/seedup-CopyIP.png" title="Copying Static IP HTML">
+      <img src="../images/seedup-PasteIP.png" title="Pasting Static IP HTML">
+      <img src="../images/seedup-CopyRegion.png" title="Copying Region HTML">
+      <img src="../images/seedup-PasteRegion.png" title="Pasting Region HTML">
+      <p>Now as you can see, after clicking Launch in the bottom right, it pops up with the confirmation screen which confirms the region was changed. Even though it says `<span>Dynamic IP: Free</span>`, this isn't the case. The server was still allocated a static IP which could be confirmed in the server dashboard, however I don't have a screenshot of that as I only have what I took for the SeedUp team.</p>
+      <img src="../images/seedup-Confirmation.png" title="Confirmation Screen">
+      <p>In this next image, you can see the server region is still set as `<span>EU (Ireland)</span>`, as well as the fact that the tier is still displayed as free and I'm told to add a payment method.</p>
+      <img src="../images/seedup-Dashboard.png" title="Dashboard">
+      <hr>
+      <h1 id="4">0x04 Summary</h1>
+      <p>The thing to take away from this, is that even though it seems absurd that you can get access to things just by edited the html properties, it can sometimes be worth the check. This is comparable to the bug where you can edit the price of something in a web store with the requests, making it a lower price during checkout. This is due to there being no backend checks/values, and improperly relying on HTML properties to be untampered.</p>
+      <p>Even though this was back in 2016, it's not entirely stupid to assume in modern websites, that a bug like this doesn't exist. Perhaps in large providers, these checks are in place, but smaller ones may still have this oversight. Nonetheless, it was pretty interesting to come across this issue in the real world.</p>
+      <p>It's important to remember that not all web application is through the web server, frameworks, libraries, APIs, etc. That just simply editing the HTML can result in behaviours that aren't necessarily expected. A lot of the times you don't have to actually make a HTTP request, changing values might also impact the page if it is dynamic, resulting in real-time changes.</p>
+      <p>Another thing to add is despite this being short, boring and has a lack of content, the purpose is also for displaying the different kind of bugs I've came across that others might overlook.</p>
+      <hr>
+      <h1 id="5">0x05 References</h1>
+      <p><a href="#[1]">[1]</a> - Archive.org ~ Last capture of SeedUp.io</p>
+    </div>
+    <div id="footer">
+      <h1>About: </h1><p>This subdomain serves as my write up site on issues and bugs I have found and reported. As this is just my hobby, a majority of my posts will not exactly be the most technical or complex. I hope the content can be enjoyed/informational regardless. :)</p>
+    </div>
+  </div>
+</body>
+</html>
